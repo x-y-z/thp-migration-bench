@@ -10,8 +10,9 @@ non_thp_move_pages: move_base_page.c
 	sudo setcap "all=ep" $@
 
 bench: thp_move_pages non_thp_move_pages
-	@echo "THP Migration"
+	@echo -n "THP Migration: "
 	@./thp_move_pages 1 2>/dev/null | grep -A 1 "Total\|Test"
+	@sleep 3
 	@echo "-------------------"
-	@echo "Base Page Migration"
+	@echo -n "BasePage Migration: "
 	@./non_thp_move_pages 32 2>/dev/null | grep -A 1 "Total\|Test"
