@@ -21,7 +21,10 @@
 #include <numaif.h>
 #include <sys/time.h>
 
+#include <math.h>
 
+unsigned int base_pagesize;
+unsigned int base_pageshift;
 unsigned int pagesize;
 unsigned int page_count = 32;
 
@@ -74,7 +77,7 @@ void print_paddr_and_flags(char *bigmem, int pagemap_file, int kpageflags_file)
 	uint64_t page_flags;
 
 	if (pagemap_file) {
-		pread(pagemap_file, &paddr, sizeof(paddr), ((long)bigmem>>12)*sizeof(paddr));
+		pread(pagemap_file, &paddr, sizeof(paddr), ((long)bigmem>>base_pageshift)*sizeof(paddr));
 
 
 		if (kpageflags_file) {
@@ -82,7 +85,7 @@ void print_paddr_and_flags(char *bigmem, int pagemap_file, int kpageflags_file)
 				(paddr & PFN_MASK)*sizeof(page_flags));
 
 			fprintf(stderr, "vpn: 0x%lx, pfn: 0x%lx is %s %s, %s, %s\n",
-				((long)bigmem)>>12,
+				((long)bigmem)>>base_pageshift,
 				(paddr & PFN_MASK),
 				paddr & PAGE_TYPE_MASK ? "file-page" : "anon",
 				paddr & PRESENT_MASK ? "there": "not there",
@@ -112,7 +115,10 @@ int main(int argc, char **argv)
 	int kpageflags_fd;
 	unsigned long nodemask = 1<<SRC_NODE;
 
-	pagesize = BASE_PAGE_SIZE;
+	base_pagesize = getpagesize();
+	base_pageshift = (unsigned int)log2(base_pagesize);
+	printf("base page shift: %u\n", base_pageshift);
+	pagesize = base_pagesize;
 
 	nr_nodes = numa_max_node()+1;
 
