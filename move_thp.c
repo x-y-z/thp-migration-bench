@@ -25,8 +25,8 @@
 
 unsigned int base_pagesize;
 unsigned int base_pageshift;
-unsigned int pagesize;
-unsigned int page_count = 32;
+uint64_t pagesize;
+uint64_t page_count = 32;
 
 char *page_base;
 char *pages;
@@ -39,17 +39,12 @@ int nr_nodes;
 
 #define PAGE_4K (4UL*1024)
 #define PAGE_2M (PAGE_4K*512)
+#define PAGE_512M (PAGE_2M*256)
 
 #define PAGE_64K (64UL*1024)
 #define PAGE_16M (PAGE_64K*256)
 
-#ifdef ARCH_PPC64
-#define BASE_PAGE_SIZE PAGE_64K
-#define THP_PAGE_SIZE  PAGE_16M
-#else
-#define BASE_PAGE_SIZE PAGE_4K
 #define THP_PAGE_SIZE  PAGE_2M
-#endif
 
 #define PRESENT_MASK (1UL<<63)
 #define SWAPPED_MASK (1UL<<62)
@@ -104,7 +99,7 @@ void print_paddr_and_flags(char *bigmem, int pagemap_file, int kpageflags_file)
 
 int main(int argc, char **argv)
 {
-	int i, rc;
+	uint64_t i, rc;
 	double begin = 0, end = 0;
 	unsigned cycles_high, cycles_low;
 	unsigned cycles_high1, cycles_low1;
@@ -120,7 +115,7 @@ int main(int argc, char **argv)
 	base_pagesize = getpagesize();
 	base_pageshift = (unsigned int)log2(base_pagesize);
 	printf("base page shift: %u\n", base_pageshift);
-	pagesize = THP_PAGE_SIZE;
+    pagesize = THP_PAGE_SIZE;
 
 	nr_nodes = numa_max_node()+1;
 
@@ -132,9 +127,9 @@ int main(int argc, char **argv)
 	setbuf(stdout, NULL);
 	printf("migrate_pages() test ......\n");
 	if (argc > 1)
-		sscanf(argv[1], "%d", &page_count);
+		sscanf(argv[1], "%lu", &page_count);
 
-	page_base = aligned_alloc(PAGE_2M, pagesize*page_count);
+	page_base = aligned_alloc(pagesize, pagesize*page_count);
 	addr = malloc(sizeof(char *) * page_count);
 	status = malloc(sizeof(int *) * page_count);
 	nodes = malloc(sizeof(int *) * page_count);
@@ -196,14 +191,25 @@ int main(int argc, char **argv)
 
 	printf("Total time: %f us\n", (end-begin)*1000000);
 
+    {
+        FILE *pm_breakdown;
+        char buf[256];
+        pm_breakdown = fopen("/proc/self/pm_breakdown", "r");
+        if (pm_breakdown) {
+            while (fgets(buf, 256, pm_breakdown))
+                fputs(buf, stdout);
+            fclose(pm_breakdown);
+        }
+    }
+
 	/* Get page state after migration */
 	numa_move_pages(0, page_count, addr, NULL, status, 0);
 	for (i = 0; i < page_count; i++) {
 		if (pages[ i* pagesize ] != (char) i) {
-			fprintf(stderr, "*** Page %d contents corrupted.\n", i);
+			fprintf(stderr, "*** Page %lu contents corrupted.\n", i);
 			errors++;
 		} else if (status[i] != DST_NODE) {
-			fprintf(stderr, "*** Page %d on the wrong node\n", i);
+			fprintf(stderr, "*** Page %lu on the wrong node\n", i);
 			errors++;
 		}
 	}

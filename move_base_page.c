@@ -194,6 +194,18 @@ int main(int argc, char **argv)
 
 	printf("Total time: %f us\n", (end-begin)*1000000);
 
+
+    {
+        FILE *pm_breakdown;
+        char buf[256];
+        pm_breakdown = fopen("/proc/self/pm_breakdown", "r");
+        if (pm_breakdown) {
+            while (fgets(buf, 256, pm_breakdown))
+                fputs(buf, stdout);
+            fclose(pm_breakdown);
+        }
+    }
+
 	/* Get page state after migration */
 	numa_move_pages(0, page_count, addr, NULL, status, 0);
 	for (i = 0; i < page_count; i++) {
